@@ -77,6 +77,25 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> Dict[
         raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
 
 
+# ---------- Startup seeding (dev convenience) ----------
+@app.on_event("startup")
+def ensure_test_user():
+    try:
+        if os.getenv("CREATE_TEST_USER", "1") != "1":
+            return
+        email = os.getenv("TEST_USER_EMAIL", "demo@demo.com")
+        password = os.getenv("TEST_USER_PASSWORD", "demo1234")
+        name = os.getenv("TEST_USER_NAME", "Demo User")
+        exists = get_documents("user", {"email": email}, limit=1)
+        if not exists:
+            hashed = hash_password(password)
+            user = User(name=name, email=email, hashed_password=hashed, role="member")
+            create_document("user", user)
+    except Exception:
+        # best-effort; avoid crashing app on seed issues
+        pass
+
+
 # ---------- Public Routes ----------
 
 @app.get("/")
